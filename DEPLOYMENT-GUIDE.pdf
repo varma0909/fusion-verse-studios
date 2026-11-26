@@ -1,0 +1,158 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 7 0 R >>
+endobj
+6 0 obj
+<< /Length 5164 >>
+stream
+1.000 1.000 1.000 rg 0 0 612 792 re f
+0.055 0.090 0.160 rg 0 0 612 112 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 42 755 Tm (FUSION VERSE STUDIOS  /  DEPLOYMENT GUIDE) Tj ET
+BT /F2 24 Tf 1.000 1.000 1.000 rg 1 0 0 1 42 718 Tm (Launch both websites) Tj ET
+BT /F1 10 Tf 0.780 0.840 0.900 rg 1 0 0 1 42 694 Tm (Two Netlify deployments. One Supabase project. Follow these steps in order.) Tj ET
+BT /F2 8 Tf 0.360 0.420 0.500 rg 1 0 0 1 42 28 Tm (FUSION VERSE STUDIOS) Tj ET
+BT /F1 8 Tf 0.360 0.420 0.500 rg 1 0 0 1 533 28 Tm (1) Tj ET
+0.920 0.970 0.960 rg 42 604 528 54 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 56 638 Tm (PUBLIC SITE) Tj ET
+BT /F2 10 Tf 0.055 0.090 0.160 rg 1 0 0 1 56 620 Tm (www.yourdomain.com) Tj ET
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 312 638 Tm (ADMIN CONSOLE) Tj ET
+BT /F2 10 Tf 0.055 0.090 0.160 rg 1 0 0 1 312 620 Tm (admin.yourdomain.com) Tj ET
+0.920 0.970 0.960 rg 42 573 25 21 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 49 579 Tm (01) Tj ET
+BT /F2 13 Tf 0.055 0.090 0.160 rg 1 0 0 1 77 578 Tm (Create and configure Supabase) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 551 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 551 Tm (Create a Supabase project. In its SQL Editor, run supabase/schema.sql from this repository.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 538 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 538 Tm (The schema creates the application tables, access policies, and the public media storage bucket.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 525 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 525 Tm (In Authentication, disable public signups, then create the intended admin user.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 512 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 512 Tm (Authorize that user by running the SQL below, replacing the email with the admin account email.) Tj ET
+0.950 0.960 0.980 rg 42 444 528 63 re f
+BT /F1 8.3 Tf 0.055 0.090 0.160 rg 1 0 0 1 54 491 Tm (insert into public.admin_users \(user_id\)) Tj ET
+BT /F1 8.3 Tf 0.055 0.090 0.160 rg 1 0 0 1 54 476 Tm (select id from auth.users where email = 'admin@example.com') Tj ET
+BT /F1 8.3 Tf 0.055 0.090 0.160 rg 1 0 0 1 54 461 Tm (on conflict do nothing;) Tj ET
+0.920 0.970 0.960 rg 42 422 25 21 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 49 428 Tm (02) Tj ET
+BT /F2 13 Tf 0.055 0.090 0.160 rg 1 0 0 1 77 427 Tm (Create two Netlify sites) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 400 Tm (Connect the same GitHub repository to Netlify twice. Each deployment is an independent site with its own) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 386 Tm (build settings and domain.) Tj ET
+0.950 0.960 0.980 rg 42 282 255 75 re f
+BT /F2 9.5 Tf 0.055 0.090 0.160 rg 1 0 0 1 55 338 Tm (PUBLIC WEBSITE) Tj ET
+BT /F1 8.1 Tf 0.360 0.420 0.500 rg 1 0 0 1 55 320 Tm (Base directory: repository root) Tj ET
+BT /F1 8.1 Tf 0.360 0.420 0.500 rg 1 0 0 1 55 307 Tm (Build command: npm run build) Tj ET
+BT /F1 8.1 Tf 0.360 0.420 0.500 rg 1 0 0 1 55 294 Tm (Publish directory: leave unset) Tj ET
+0.950 0.960 0.980 rg 315 282 255 75 re f
+BT /F2 9.5 Tf 0.055 0.090 0.160 rg 1 0 0 1 328 338 Tm (ADMIN CONSOLE) Tj ET
+BT /F1 8.1 Tf 0.360 0.420 0.500 rg 1 0 0 1 328 320 Tm (Base directory: admin-console) Tj ET
+BT /F1 8.1 Tf 0.360 0.420 0.500 rg 1 0 0 1 328 307 Tm (Build command: npm run build) Tj ET
+BT /F1 8.1 Tf 0.360 0.420 0.500 rg 1 0 0 1 328 294 Tm (Publish directory: leave unset) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 261 Tm (Let Netlify detect Next.js for both sites. Connect your domains in each site's domain settings. The admin) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 247 Tm (console is a separate app served at its own domain root.) Tj ET
+0.920 0.970 0.960 rg 42 228 25 21 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 49 234 Tm (03) Tj ET
+BT /F2 13 Tf 0.055 0.090 0.160 rg 1 0 0 1 77 233 Tm (Set Netlify environment variables) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 206 Tm (Add these variables to BOTH sites in Netlify site settings, then redeploy:) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 190 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 190 Tm (NEXT_PUBLIC_SUPABASE_URL - Supabase Project Settings > API > Project URL) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 177 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 177 Tm (NEXT_PUBLIC_SUPABASE_ANON_KEY - Supabase Project Settings > API > anon/publishable key) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 164 Tm (Add this variable to the ADMIN CONSOLE only:) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 148 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 148 Tm (NEXT_PUBLIC_WEBSITE_URL - the final public website URL, such as https://www.yourdomain.com) Tj ET
+0.920 0.970 0.960 rg 42 66 528 39 re f
+BT /F2 9 Tf 0.055 0.090 0.160 rg 1 0 0 1 54 89 Tm (Never put a service-role key in Netlify or any NEXT_PUBLIC_ variable.) Tj ET
+BT /F1 8 Tf 0.360 0.420 0.500 rg 1 0 0 1 54 75 Tm (The anon key is designed for browser use; Supabase Row Level Security protects the data.) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 9 0 R >>
+endobj
+8 0 obj
+<< /Length 4985 >>
+stream
+1.000 1.000 1.000 rg 0 0 612 792 re f
+0.055 0.090 0.160 rg 0 0 612 112 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 42 755 Tm (FUSION VERSE STUDIOS  /  DEPLOYMENT GUIDE) Tj ET
+BT /F2 24 Tf 1.000 1.000 1.000 rg 1 0 0 1 42 718 Tm (Deploy, secure, and verify) Tj ET
+BT /F1 10 Tf 0.780 0.840 0.900 rg 1 0 0 1 42 694 Tm (Finish the email function setup, then test the full live workflow.) Tj ET
+BT /F2 8 Tf 0.360 0.420 0.500 rg 1 0 0 1 42 28 Tm (FUSION VERSE STUDIOS) Tj ET
+BT /F1 8 Tf 0.360 0.420 0.500 rg 1 0 0 1 533 28 Tm (2) Tj ET
+0.920 0.970 0.960 rg 42 651 25 21 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 49 657 Tm (04) Tj ET
+BT /F2 13 Tf 0.055 0.090 0.160 rg 1 0 0 1 77 656 Tm (Deploy inquiry email notifications) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 629 Tm (The public contact form saves inquiries to Supabase and then calls the send-inquiry-emails Edge Function.) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 615 Tm (From the repository root, run:) Tj ET
+0.950 0.960 0.980 rg 42 546 528 63 re f
+BT /F1 8.3 Tf 0.055 0.090 0.160 rg 1 0 0 1 54 593 Tm (npx supabase login) Tj ET
+BT /F1 8.3 Tf 0.055 0.090 0.160 rg 1 0 0 1 54 578 Tm (npx supabase link --project-ref YOUR_PROJECT_REF) Tj ET
+BT /F1 8.3 Tf 0.055 0.090 0.160 rg 1 0 0 1 54 563 Tm (npx supabase functions deploy send-inquiry-emails) Tj ET
+BT /F1 9.5 Tf 0.120 0.170 0.240 rg 1 0 0 1 42 529 Tm (Configure the function's email settings in Supabase Edge Function secrets \(not Netlify\):) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 513 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 513 Tm (RESEND_API_KEY - your Resend API key.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 500 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 500 Tm (EMAIL_FROM - a sender address verified with Resend.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 487 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 487 Tm (INQUIRY_TO_EMAIL - where new inquiries should be delivered; optional, defaults to) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 474 Tm (fusionversestudios.ai@gmail.com.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 461 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 461 Tm (The function also needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. Use the Supabase-provided function) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 448 Tm (environment values where available; never expose the service-role key to browsers.) Tj ET
+0.920 0.970 0.960 rg 42 423 25 21 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 49 429 Tm (05) Tj ET
+BT /F2 13 Tf 0.055 0.090 0.160 rg 1 0 0 1 77 428 Tm (Run a live launch check) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 401 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 401 Tm (Open both deployed URLs and confirm the public site and admin login load.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 388 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 388 Tm (Sign in to the admin console with the account added to public.admin_users.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 375 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 375 Tm (Create a test project in the admin console, publish it, and confirm it appears on the public site.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 362 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 362 Tm (Submit a test contact inquiry. Confirm it appears in the admin dashboard and that the notification and) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 349 Tm (confirmation emails arrive.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 336 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 336 Tm (Upload a test image or video to confirm admin media uploads work.) Tj ET
+0.920 0.970 0.960 rg 42 310 25 21 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 49 316 Tm (06) Tj ET
+BT /F2 13 Tf 0.055 0.090 0.160 rg 1 0 0 1 77 315 Tm (Keep credentials and data safe) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 288 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 288 Tm (Only trusted admin accounts should be in public.admin_users. Keep public signups disabled.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 275 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 275 Tm (Never commit secrets or place the service-role key in client-side code or public environment variables.) Tj ET
+BT /F2 9.2 Tf 0.040 0.580 0.550 rg 1 0 0 1 53 262 Tm (-) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 262 Tm (Use Supabase backups and review project access before launch. The database and media are stored in) Tj ET
+BT /F1 9.2 Tf 0.120 0.170 0.240 rg 1 0 0 1 66 249 Tm (Supabase.) Tj ET
+0.920 0.970 0.960 rg 42 69 528 48 re f
+BT /F2 8 Tf 0.040 0.580 0.550 rg 1 0 0 1 54 98 Tm (Repository reference) Tj ET
+BT /F1 8 Tf 0.055 0.090 0.160 rg 1 0 0 1 54 81 Tm (DEPLOYMENT.md  |  supabase/schema.sql  |  supabase/functions/send-inquiry-emails/) Tj ET
+endstream
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000272 00000 n 
+0000000408 00000 n 
+0000005624 00000 n 
+0000005760 00000 n 
+trailer
+<< /Size 9 /Root 1 0 R >>
+startxref
+10797
+%%EOF
