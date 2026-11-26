@@ -1,0 +1,5 @@
+
+[build]
+  base = "admin-console"
+  command = "npm run build"
+  publish = ".next"
