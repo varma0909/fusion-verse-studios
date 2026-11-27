@@ -196,6 +196,7 @@ export default function AdminPage() {
 
 
 
+
 function ProjectManager() {
   const [items, setItems] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -203,7 +204,10 @@ function ProjectManager() {
   const [feedback, setFeedback] = useState("");
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
+  // Project information
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("AI Films");
   const [description, setDescription] = useState("");
@@ -211,11 +215,15 @@ function ProjectManager() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [credits, setCredits] = useState("");
   const [featured, setFeatured] = useState(false);
+  const [publishStatus, setPublishStatus] =
+    useState<"draft" | "published">("draft");
 
+  // Project media
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [cover, setCover] = useState<File | null>(null);
   const [video, setVideo] = useState<File | null>(null);
 
+  // Load projects
   async function loadProjects() {
     if (!supabase) {
       setFeedback("Supabase is not configured.");
@@ -244,6 +252,7 @@ function ProjectManager() {
     void loadProjects();
   }, []);
 
+  // Reset creation form
   function resetForm() {
     setTitle("");
     setCategory("AI Films");
@@ -252,41 +261,59 @@ function ProjectManager() {
     setYear(String(new Date().getFullYear()));
     setCredits("");
     setFeatured(false);
+    setPublishStatus("draft");
+
     setThumbnail(null);
     setCover(null);
     setVideo(null);
+
+    // Clear the actual browser file inputs
+    setFileInputKey((current) => current + 1);
   }
 
+  // Upload file to Supabase Storage
   async function uploadFile(file: File, folder: string) {
-    if (!supabase) throw new Error("Supabase is not configured.");
+    if (!supabase) {
+      throw new Error("Supabase is not configured.");
+    }
 
-    const extension = file.name.split(".").pop()?.toLowerCase() || "file";
-    const path = `projects/${folder}/${crypto.randomUUID()}.${extension}`;
+    const extension =
+      file.name.split(".").pop()?.toLowerCase() || "file";
+
+    const path =
+      `projects/${folder}/${crypto.randomUUID()}.${extension}`;
 
     const { error } = await supabase.storage
       .from("media")
       .upload(path, file, {
         cacheControl: "3600",
         upsert: false,
-        contentType: file.type,
+        contentType: file.type || "application/octet-stream",
       });
 
     if (error) {
-      throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+      throw new Error(
+        `Upload failed for ${file.name}: ${error.message}`
+      );
     }
 
-    const { data } = supabase.storage.from("media").getPublicUrl(path);
+    const { data } = supabase.storage
+      .from("media")
+      .getPublicUrl(path);
 
     return data.publicUrl;
   }
 
+  // Create project
   async function addProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!supabase || saving) return;
 
     if (!title.trim() || !category || !video) {
-      setFeedback("Please enter a title, select a category and upload a video.");
+      setFeedback(
+        "Please enter a project title, select a category and upload a video."
+      );
       return;
     }
 
@@ -305,6 +332,13 @@ function ProjectManager() {
       return;
     }
 
+    if (year && !Number.isInteger(Number(year))) {
+      setFeedback("Please enter a valid production year.");
+      return;
+    }
+
+    const shouldPublish = publishStatus === "published";
+
     setSaving(true);
     setFeedback("");
 
@@ -312,14 +346,21 @@ function ProjectManager() {
       const slug =
         `${title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
 
-      // Upload selected media to Supabase Storage.
-      const [thumbnailUrl, coverUrl, videoUrl] = await Promise.all([
-        thumbnail ? uploadFile(thumbnail, slug) : Promise.resolve(null),
-        cover ? uploadFile(cover, slug) : Promise.resolve(null),
-        uploadFile(video, slug),
-      ]);
+      // Upload selected media
+      const [thumbnailUrl, coverUrl, videoUrl] =
+        await Promise.all([
+          thumbnail
+            ? uploadFile(thumbnail, slug)
+            : Promise.resolve(null),
 
-      // Save project information in Supabase.
+          cover
+            ? uploadFile(cover, slug)
+            : Promise.resolve(null),
+
+          uploadFile(video, slug),
+        ]);
+
+      // Insert project into database
       const { data, error } = await supabase
         .from("projects")
         .insert({
@@ -334,7 +375,7 @@ function ProjectManager() {
           cover_url: coverUrl,
           video_url: videoUrl,
           featured,
-          published: false,
+          published: shouldPublish,
         })
         .select()
         .single();
@@ -344,10 +385,15 @@ function ProjectManager() {
       }
 
       setItems((current) => [...current, data]);
+
       resetForm();
       setCreating(false);
-      setFeedback("Project created successfully and saved as a draft.");
 
+      setFeedback(
+        shouldPublish
+          ? "Project created and published successfully!"
+          : "Project created successfully and saved as a draft."
+      );
     } catch (error) {
       setFeedback(
         error instanceof Error
@@ -359,8 +405,52 @@ function ProjectManager() {
     }
   }
 
+  // Publish or unpublish existing project
+  async function updatePublished(
+    id: string,
+    published: boolean
+  ) {
+    if (!supabase || updatingId) return;
+
+    setUpdatingId(id);
+    setFeedback("");
+
+    const { error } = await supabase
+      .from("projects")
+      .update({ published })
+      .eq("id", id);
+
+    if (error) {
+      setFeedback(
+        `Could not update publication status: ${error.message}`
+      );
+      setUpdatingId(null);
+      return;
+    }
+
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id
+          ? { ...item, published }
+          : item
+      )
+    );
+
+    setFeedback(
+      published
+        ? "Project published successfully!"
+        : "Project moved to drafts successfully."
+    );
+
+    setUpdatingId(null);
+  }
+
+  // Delete project
   async function remove(id: string) {
     if (!supabase) return;
+
+    setDeletingId(id);
+    setFeedback("");
 
     const { error } = await supabase
       .from("projects")
@@ -373,12 +463,15 @@ function ProjectManager() {
       return;
     }
 
-    setItems((current) => current.filter((item) => item.id !== id));
+    setItems((current) =>
+      current.filter((item) => item.id !== id)
+    );
+
     setDeletingId(null);
     setFeedback("Project deleted successfully.");
   }
 
-  // Full-page project creation workspace.
+  // Project creation workspace
   if (creating) {
     return (
       <div className="project-editor">
@@ -387,15 +480,19 @@ function ProjectManager() {
           <div>
             <small>PORTFOLIO / NEW PROJECT</small>
             <h2>Create New Project</h2>
-            <p>Add your project details and upload the production media.</p>
+            <p>
+              Add your project details and upload the production media.
+            </p>
           </div>
 
           <button
             type="button"
             className="project-back-button"
             onClick={() => {
-              setCreating(false);
-              setFeedback("");
+              if (!saving) {
+                setCreating(false);
+                setFeedback("");
+              }
             }}
             disabled={saving}
           >
@@ -459,6 +556,8 @@ function ProjectManager() {
                   type="number"
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
+                  min="1900"
+                  max="2100"
                 />
               </label>
             </div>
@@ -480,11 +579,28 @@ function ProjectManager() {
               />
               Feature this project on the website
             </label>
+
+            <label>
+              Publication Status
+              <select
+                value={publishStatus}
+                onChange={(e) =>
+                  setPublishStatus(
+                    e.target.value as "draft" | "published"
+                  )
+                }
+              >
+                <option value="draft">Save as Draft</option>
+                <option value="published">Publish Immediately</option>
+              </select>
+            </label>
           </div>
 
           <div className="project-form-section">
             <h3>02. Project Images</h3>
-            <p>Upload images to represent your project on the portfolio.</p>
+            <p>
+              Upload images to represent your project on the portfolio.
+            </p>
 
             <div className="project-upload-grid">
 
@@ -492,13 +608,16 @@ function ProjectManager() {
                 <span className="upload-icon">▧</span>
                 <strong>Thumbnail Image</strong>
                 <small>JPG, PNG or WebP</small>
+
                 <input
+                  key={`thumbnail-${fileInputKey}`}
                   type="file"
                   accept="image/*"
                   onChange={(e) =>
                     setThumbnail(e.target.files?.[0] || null)
                   }
                 />
+
                 <span className="selected-file">
                   {thumbnail?.name || "Choose thumbnail"}
                 </span>
@@ -508,13 +627,16 @@ function ProjectManager() {
                 <span className="upload-icon">▧</span>
                 <strong>Cover Image</strong>
                 <small>JPG, PNG or WebP</small>
+
                 <input
+                  key={`cover-${fileInputKey}`}
                   type="file"
                   accept="image/*"
                   onChange={(e) =>
                     setCover(e.target.files?.[0] || null)
                   }
                 />
+
                 <span className="selected-file">
                   {cover?.name || "Choose cover image"}
                 </span>
@@ -525,13 +647,17 @@ function ProjectManager() {
 
           <div className="project-form-section">
             <h3>03. Project Video</h3>
-            <p>Upload the final video that will appear in your portfolio.</p>
+            <p>
+              Upload the final video that will appear in your portfolio.
+            </p>
 
             <label className="project-video-upload">
               <span className="upload-icon">▶</span>
               <strong>Upload Project Video *</strong>
               <small>MP4, MOV or WebM</small>
+
               <input
+                key={`video-${fileInputKey}`}
                 type="file"
                 accept="video/mp4,video/quicktime,video/webm,video/*"
                 onChange={(e) =>
@@ -539,9 +665,11 @@ function ProjectManager() {
                 }
                 required
               />
+
               <span className="selected-file">
                 {video?.name || "Select video from your computer"}
               </span>
+
               {video && (
                 <small>
                   {(video.size / (1024 * 1024)).toFixed(2)} MB
@@ -557,12 +685,15 @@ function ProjectManager() {
           )}
 
           <div className="project-form-actions">
+
             <button
               type="button"
               className="project-back-button"
               onClick={() => {
-                setCreating(false);
-                setFeedback("");
+                if (!saving) {
+                  setCreating(false);
+                  setFeedback("");
+                }
               }}
               disabled={saving}
             >
@@ -574,8 +705,13 @@ function ProjectManager() {
               className="add-button"
               disabled={saving}
             >
-              {saving ? "Uploading & Creating..." : "Create Project as Draft"}
+              {saving
+                ? "Uploading & Creating..."
+                : publishStatus === "published"
+                  ? "Create & Publish Project"
+                  : "Create Project as Draft"}
             </button>
+
           </div>
 
         </form>
@@ -583,17 +719,20 @@ function ProjectManager() {
     );
   }
 
-  // Existing projects listing.
+  // Existing projects listing
   return (
     <div className="manager">
 
       <div className="project-list-header">
         <div>
           <h3>Your Portfolio Projects</h3>
-          <p>Manage your studio's published and draft projects.</p>
+          <p>
+            Manage your studio's published and draft projects.
+          </p>
         </div>
 
         <button
+          type="button"
           className="add-button"
           onClick={() => {
             resetForm();
@@ -613,9 +752,13 @@ function ProjectManager() {
 
       {loading ? (
         <p>Loading projects...</p>
-      ) : items.length ? (
+      ) : items.length > 0 ? (
+
         items.map((item) => (
-          <article key={String(item.id)} className="project-list-item">
+          <article
+            key={String(item.id)}
+            className="project-list-item"
+          >
 
             {item.thumbnail_url && (
               <img
@@ -626,48 +769,89 @@ function ProjectManager() {
             )}
 
             <div className="project-list-details">
-              <small>{String(item.category || "Uncategorized")}</small>
+              <small>
+                {String(item.category || "Uncategorized")}
+              </small>
+
               <h3>{String(item.title)}</h3>
-              <span className={item.published ? "status live" : "status"}>
+
+              <span
+                className={
+                  item.published ? "status live" : "status"
+                }
+              >
                 {item.published ? "Published" : "Draft"}
               </span>
             </div>
 
-            {deletingId === String(item.id) ? (
-              <div className="project-delete-confirm">
-                <span>Delete this project?</span>
-                <button
-                  type="button"
-                  onClick={() => remove(String(item.id))}
-                >
-                  Yes, delete
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeletingId(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
+            <div className="project-list-actions">
+
               <button
                 type="button"
-                onClick={() => setDeletingId(String(item.id))}
+                className="add-button"
+                disabled={
+                  updatingId === String(item.id) ||
+                  deletingId === String(item.id)
+                }
+                onClick={() =>
+                  updatePublished(
+                    String(item.id),
+                    !item.published
+                  )
+                }
               >
-                Delete
+                {updatingId === String(item.id)
+                  ? "Updating..."
+                  : item.published
+                    ? "Unpublish"
+                    : "Publish"}
               </button>
-            )}
 
+              {deletingId === String(item.id) ? (
+                <div className="project-delete-confirm">
+                  <span>Delete this project?</span>
+
+                  <button
+                    type="button"
+                    disabled={updatingId === String(item.id)}
+                    onClick={() => remove(String(item.id))}
+                  >
+                    Yes, delete
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeletingId(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={updatingId === String(item.id)}
+                  onClick={() =>
+                    setDeletingId(String(item.id))
+                  }
+                >
+                  Delete
+                </button>
+              )}
+
+            </div>
           </article>
         ))
+
       ) : (
         <div className="empty-state">
           No projects yet. Create your first portfolio entry.
         </div>
       )}
+
     </div>
   );
 }
+
 
 
 function BrandManager() {
