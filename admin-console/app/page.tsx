@@ -194,27 +194,156 @@ export default function AdminPage() {
   );
 }
 
+
 function ProjectManager() {
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
+
+  async function loadProjects() {
+    if (!supabase) {
+      setFeedback("Supabase is not configured.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .order("position");
+
+    if (error) {
+      setFeedback(`Could not load projects: ${error.message}`);
+    } else {
+      setItems(data || []);
+      setFeedback("");
+    }
+
+    setLoading(false);
+  }
+
   useEffect(() => {
-    supabase?.from("projects").select("*").order("position").then(({ data }) => setItems(data || []));
+    void loadProjects();
   }, []);
+
   async function addProject() {
-    if (!supabase) return;
+    if (!supabase || saving) return;
+
     const title = window.prompt("Project title");
-    if (!title) return;
-    const category = window.prompt("Category (AI Films, Micro Dramas, Commercial Ads, AI VFX, Animation)") || "AI Films";
-    await supabase.from("projects").insert({ title, category, slug: `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}` });
-    const { data } = await supabase.from("projects").select("*").order("position");
-    setItems(data || []);
+    if (!title?.trim()) return;
+
+    const category = window.prompt(
+      "Category (AI Films, Micro Dramas, Commercial Ads, AI VFX, Animation)"
+    );
+
+    if (!category?.trim()) return;
+
+    const slug = `${title
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")}-${Date.now()}`;
+
+    setSaving(true);
+    setFeedback("");
+
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          title: title.trim(),
+          category: category.trim(),
+          slug,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        setFeedback(`PROJECT CREATION FAILED: ${error.message}`);
+        console.error("Supabase project insertion error:", error);
+        return;
+      }
+
+      setItems((current) => [...current, data]);
+      setFeedback("Project created successfully!");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Unexpected error while creating project."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
+
   async function remove(id: string) {
-    if (!window.confirm("Delete this project?")) return;
-    await supabase?.from("projects").delete().eq("id", id);
-    setItems((current) => current.filter((item) => item.id !== id));
+    if (!supabase || !window.confirm("Delete this project?")) return;
+
+    const { error } = await supabase
+      .from("projects")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      setFeedback(`Could not delete project: ${error.message}`);
+      return;
+    }
+
+    setItems((current) =>
+      current.filter((item) => item.id !== id)
+    );
+
+    setFeedback("Project deleted successfully.");
   }
-  return <div className="manager"><button className="add-button" onClick={addProject}>+ Add Project</button>{items.length ? items.map((item) => <article key={String(item.id)}><div><small>{String(item.category)}</small><h3>{String(item.title)}</h3></div><span className={item.published ? "status live" : "status"}>{item.published ? "Published" : "Draft"}</span><button onClick={() => remove(String(item.id))}>Delete</button></article>) : <div className="empty-state">No projects yet. Create the first portfolio entry.</div>}</div>;
+
+  return (
+    <div className="manager">
+      <button
+        className="add-button"
+        onClick={addProject}
+        disabled={saving}
+      >
+        {saving ? "Creating..." : "+ Add Project"}
+      </button>
+
+      {feedback && (
+        <p role="status" aria-live="polite">
+          {feedback}
+        </p>
+      )}
+
+      {loading ? (
+        <p>Loading projects...</p>
+      ) : items.length ? (
+        items.map((item) => (
+          <article key={String(item.id)}>
+            <div>
+              <small>{String(item.category)}</small>
+              <h3>{String(item.title)}</h3>
+            </div>
+
+            <span className={item.published ? "status live" : "status"}>
+              {item.published ? "Published" : "Draft"}
+            </span>
+
+            <button onClick={() => remove(String(item.id))}>
+              Delete
+            </button>
+          </article>
+        ))
+      ) : (
+        <div className="empty-state">
+          No projects yet. Create the first portfolio entry.
+        </div>
+      )}
+    </div>
+  );
 }
+
 
 function BrandManager() {
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
