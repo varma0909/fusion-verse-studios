@@ -1,96 +1,125 @@
-"use client";
+          const isRead = item.is_read === true;
 
-import { FormEvent, useEffect, useState } from "react";
-import { BarChart3, FolderKanban, Image, Inbox, LogOut, Settings, Users } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { DEFAULT_CONTACT_EMAIL, LEGACY_CONTACT_EMAIL } from "@/lib/constants";
+          return (
+            <article key={String(item.id)} className="inquiry-list-item">
+              <div>
+                <small>
+                  {String(item.email || "No email")}
+                  {item.phone ? ` · ${String(item.phone)}` : ""}
+                  {" · "}
+                  {item.project_type
+                    ? String(item.project_type)
+                    : "General inquiry"}
+                  {item.created_at
+                    ? ` · ${new Date(String(item.created_at)).toLocaleString()}`
+                    : ""}
+                </small>
+                <h3>{String(item.name || "Unnamed visitor")}</h3>
+                <p>{String(item.message || "")}</p>
+                <small>{isRead ? "Read" : "Unread"}</small>
+              </div>
 
-type Section = "Overview" | "Projects" | "Brands" | "Team" | "Inquiries" | "Settings";
+              <button
+                type="button"
+                disabled={isRead || updatingId === String(item.id)}
+                onClick={() => void markAsRead(String(item.id))}
+              >
+                {updatingId === String(item.id)
+                  ? "Updating..."
+                  : isRead
+                    ? "Read"
+                    : "Mark read"}
+              </button>
+            </article>
+          );
+        })
+      ) : (
+        <div className="empty-state">No inquiries received.</div>
+      )}
+    </div>
+  );
+}
 
-const websiteUrl =
-  process.env.NEXT_PUBLIC_WEBSITE_URL ||
-  (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
-
-export default function AdminPage() {
-  const [authenticated, setAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [section, setSection] = useState<Section>("Overview");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [counts, setCounts] = useState({ projects: 0, drafts: 0, brands: 0, team: 0, inquiries: 0 });
+function SettingsManager() {
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [settings, setSettings] = useState({
+    homepage_headline: "IMAGINATION.\nREIMAGINED\nTHROUGH AI.",
+    about_text: "",
+    contact_email: DEFAULT_CONTACT_EMAIL,
+    linkedin_url: "",
+    instagram_url: "",
+    youtube_url: "",
+  });
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
-    let active = true;
-    async function checkSession() {
-      const { data, error: sessionError } = await supabase!.auth.getSession();
-      if (!active) return;
-      if (sessionError) {
-        setError(`Could not check your admin session: ${sessionError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      if (data.session) {
-        const { data: isAdmin, error: accessError } = await supabase!.rpc("is_admin");
-        if (!active) return;
-        if (accessError) {
-          setError(`Could not verify admin access: ${accessError.message}`);
-          await supabase!.auth.signOut();
-        } else if (isAdmin) {
-          setAuthenticated(true);
-        } else {
-          setError("This account is not authorized to access the admin console.");
-          await supabase!.auth.signOut();
+    if (!supabase) return;
+    supabase
+      .from("site_settings")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          setFeedback(`Could not load website settings: ${error.message}`);
+          return;
         }
-      }
-      if (active) setLoading(false);
-    }
-
-    void checkSession();
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) setAuthenticated(false);
-    });
-    return () => {
-      active = false;
-      data.subscription.unsubscribe();
-    };
+        if (data) {
+          setSettings({
+            homepage_headline: data.homepage_headline || "IMAGINATION.\nREIMAGINED\nTHROUGH AI.",
+            about_text: data.about_text || "",
+            contact_email:
+              data.contact_email && data.contact_email !== LEGACY_CONTACT_EMAIL
+                ? data.contact_email
+                : DEFAULT_CONTACT_EMAIL,
+            linkedin_url: data.linkedin_url || "",
+            instagram_url: data.instagram_url || "",
+            youtube_url: data.youtube_url || "",
+          });
+        }
+      });
   }, []);
 
-  async function refreshUnreadInquiryCount() {
-    if (!supabase) return;
-
-    const { count, error: countError } = await supabase
-      .from("inquiries")
-      .select("id", { count: "exact", head: true })
-      .eq("is_read", false);
-
-    if (countError) {
-      console.error("Could not refresh unread inquiry count:", countError.message);
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) {
+      setFeedback("Supabase is not configured. Website settings could not be saved.");
       return;
     }
-
-    setCounts((current) => ({ ...current, inquiries: count || 0 }));
+    setSaving(true);
+    setFeedback("");
+    try {
+      const { error } = await supabase.from("site_settings").upsert({
+        id: 1,
+        ...settings,
+      });
+      if (error) {
+        setFeedback(`Could not save website settings: ${error.message}`);
+      } else {
+        setFeedback("Website settings saved.");
+      }
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? `Could not save website settings: ${error.message}`
+          : "Could not save website settings due to an unexpected error.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
-
-  useEffect(() => {
-    if (!authenticated || !supabase) return;
-    async function loadCounts() {
-      const [published, drafts, brands, team, inquiries] = await Promise.all([
-        supabase!.from("projects").select("id", { count: "exact", head: true }).eq("published", true),
-        supabase!.from("projects").select("id", { count: "exact", head: true }).eq("published", false),
-        supabase!.from("brands").select("id", { count: "exact", head: true }),
-        supabase!.from("team_members").select("id", { count: "exact", head: true }),
-        supabase!.from("inquiries").select("id", { count: "exact", head: true }).eq("is_read", false),
-      ]);
-      setCounts({
-        projects: published.count || 0,
-        drafts: drafts.count || 0,
-        brands: brands.count || 0,
-        team: team.count || 0,
-        inquiries: inquiries.count || 0,
+  return (
+    <form className="settings-form" onSubmit={save}>
+      <label>Homepage Headline<textarea name="headline" rows={3} value={settings.homepage_headline} onChange={(event) => setSettings({ ...settings, homepage_headline: event.target.value })} /></label>
+      <label>About Section<textarea name="about" rows={5} value={settings.about_text} onChange={(event) => setSettings({ ...settings, about_text: event.target.value })} /></label>
+      <label>Contact Email<input name="email" type="email" value={settings.contact_email} onChange={(event) => setSettings({ ...settings, contact_email: event.target.value })} /></label>
+      <div className="form-row">
+        <label>LinkedIn<input name="linkedin" value={settings.linkedin_url} onChange={(event) => setSettings({ ...settings, linkedin_url: event.target.value })} /></label>
+        <label>Instagram<input name="instagram" value={settings.instagram_url} onChange={(event) => setSettings({ ...settings, instagram_url: event.target.value })} /></label>
+      </div>
+      <label>YouTube<input name="youtube" value={settings.youtube_url} onChange={(event) => setSettings({ ...settings, youtube_url: event.target.value })} /></label>
+      {feedback && <p role="status">{feedback}</p>}
+      <button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Settings"}</button>
+    </form>
+  );
+}
