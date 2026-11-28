@@ -1,43 +1,891 @@
-          const isRead = item.is_read === true;
+"use client";
 
-          return (
-            <article key={String(item.id)} className="inquiry-list-item">
-              <div>
+import { FormEvent, useEffect, useState } from "react";
+import { BarChart3, FolderKanban, Image, Inbox, LogOut, Settings, Users } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { DEFAULT_CONTACT_EMAIL, LEGACY_CONTACT_EMAIL } from "@/lib/constants";
+
+type Section = "Overview" | "Projects" | "Brands" | "Team" | "Inquiries" | "Settings";
+
+const websiteUrl =
+  process.env.NEXT_PUBLIC_WEBSITE_URL ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
+
+export default function AdminPage() {
+  const [authenticated, setAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState<Section>("Overview");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [counts, setCounts] = useState({ projects: 0, drafts: 0, brands: 0, team: 0, inquiries: 0 });
+
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    async function checkSession() {
+      const { data, error: sessionError } = await supabase!.auth.getSession();
+      if (!active) return;
+      if (sessionError) {
+        setError(`Could not check your admin session: ${sessionError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      if (data.session) {
+        const { data: isAdmin, error: accessError } = await supabase!.rpc("is_admin");
+        if (!active) return;
+        if (accessError) {
+          setError(`Could not verify admin access: ${accessError.message}`);
+          await supabase!.auth.signOut();
+        } else if (isAdmin) {
+          setAuthenticated(true);
+        } else {
+          setError("This account is not authorized to access the admin console.");
+          await supabase!.auth.signOut();
+        }
+      }
+      if (active) setLoading(false);
+    }
+
+    void checkSession();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) setAuthenticated(false);
+    });
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated || !supabase) return;
+    async function loadCounts() {
+      const [published, drafts, brands, team, inquiries] = await Promise.all([
+        supabase!.from("projects").select("id", { count: "exact", head: true }).eq("published", true),
+        supabase!.from("projects").select("id", { count: "exact", head: true }).eq("published", false),
+        supabase!.from("brands").select("id", { count: "exact", head: true }),
+        supabase!.from("team_members").select("id", { count: "exact", head: true }),
+        supabase!.from("inquiries").select("id", { count: "exact", head: true }).eq("is_read", false),
+      ]);
+      setCounts({
+        projects: published.count || 0,
+        drafts: drafts.count || 0,
+        brands: brands.count || 0,
+        team: team.count || 0,
+        inquiries: inquiries.count || 0,
+      });
+    }
+    loadCounts();
+  }, [authenticated]);
+
+  async function login(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    if (!supabase) {
+      setError("Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      return;
+    }
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) setError(authError.message);
+    else {
+      const { data: isAdmin, error: accessError } = await supabase.rpc("is_admin");
+      if (accessError) {
+        await supabase.auth.signOut();
+        setError(`Could not verify admin access: ${accessError.message}`);
+      } else if (!isAdmin) {
+        await supabase.auth.signOut();
+        setError("This account is not authorized to access the admin console.");
+      } else {
+        setAuthenticated(true);
+      }
+    }
+  }
+
+  async function logout() {
+    await supabase?.auth.signOut();
+    setAuthenticated(false);
+  }
+
+  if (loading) return <main className="admin-loading">Loading studio controls...</main>;
+
+  if (!authenticated) {
+    return (
+      <main className="admin-login">
+        <form onSubmit={login}>
+          <div className="admin-logo">FVS</div>
+          <small>SECURE ADMINISTRATION</small>
+          <h1>Studio Control</h1>
+          <p>Sign in to manage published content.</p>
+          <label>Email Address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+          <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
+          {error && <div className="admin-error">{error}</div>}
+          <button type="submit">Enter Dashboard</button>
+          {websiteUrl && <a href={websiteUrl}>← Return to website</a>}
+        </form>
+      </main>
+    );
+  }
+
+  const menu: { name: Section; icon: typeof BarChart3 }[] = [
+    { name: "Overview", icon: BarChart3 },
+    { name: "Projects", icon: FolderKanban },
+    { name: "Brands", icon: Image },
+    { name: "Team", icon: Users },
+    { name: "Inquiries", icon: Inbox },
+    { name: "Settings", icon: Settings },
+  ];
+
+  return (
+    <main className="admin-shell">
+      <aside>
+        <div className="admin-logo">FVS</div>
+        <small>STUDIO CONTROL</small>
+        <nav>
+          {menu.map(({ name, icon: Icon }) => (
+            <button className={section === name ? "active" : ""} onClick={() => setSection(name)} key={name}>
+              <Icon size={18} /> {name}
+              {name === "Inquiries" && counts.inquiries > 0 && <b>{counts.inquiries}</b>}
+            </button>
+          ))}
+        </nav>
+        <button className="logout" onClick={logout}><LogOut size={18} /> Sign out</button>
+      </aside>
+      <section className="admin-content">
+        <header>
+          <div><small>FUSION VERSE STUDIOS</small><h1>{section}</h1></div>
+          {websiteUrl && <a href={websiteUrl} target="_blank" rel="noreferrer">View website ↗</a>}
+        </header>
+
+        {section === "Overview" && (
+          <div className="dashboard">
+            <div className="metric-grid">
+              <article><small>Published Projects</small><strong>{counts.projects}</strong><span>Live on website</span></article>
+              <article><small>Draft Projects</small><strong>{counts.drafts}</strong><span>Awaiting publication</span></article>
+              <article><small>Brands</small><strong>{counts.brands}</strong><span>Collaborations</span></article>
+              <article><small>Team Members</small><strong>{counts.team}</strong><span>Studio profiles</span></article>
+            </div>
+            <div className="dashboard-panels">
+              <article><div><small>Recent Inquiries</small><b>{counts.inquiries} unread</b></div><p>Open the inquiry manager to review and respond to new project requests.</p><button onClick={() => setSection("Inquiries")}>Open inbox</button></article>
+              <article><div><small>Content Status</small><b>Production ready</b></div><p>Your public website is connected to the Supabase content database.</p><button onClick={() => setSection("Projects")}>Manage projects</button></article>
+            </div>
+          </div>
+        )}
+
+        {section !== "Overview" && (
+          <div className="admin-workarea">
+            <div>
+              <h2>{section === "Projects" ? "Portfolio Management" : section === "Brands" ? "Brands & Collaborations" : section === "Team" ? "Team Profiles" : section === "Inquiries" ? "Contact Inquiries" : "Website Settings"}</h2>
+              <p>{section === "Settings" ? "Configure public content and administrator preferences." : `Add, edit, and organize ${section.toLowerCase()} from this workspace.`}</p>
+            </div>
+            {section === "Projects" && <ProjectManager />}
+            {section === "Brands" && <BrandManager />}
+            {section === "Team" && <TeamManager />}
+            {section === "Inquiries" && <InquiryManager />}
+            {section === "Settings" && <SettingsManager />}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+
+
+
+function ProjectManager() {
+  const [items, setItems] = useState<Record<string, any>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
+
+  // Project information
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("AI Films");
+  const [description, setDescription] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [credits, setCredits] = useState("");
+  const [featured, setFeatured] = useState(false);
+  const [publishStatus, setPublishStatus] =
+    useState<"draft" | "published">("draft");
+
+  // Project media
+  const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [cover, setCover] = useState<File | null>(null);
+  const [video, setVideo] = useState<File | null>(null);
+
+  // Load projects
+  async function loadProjects() {
+    if (!supabase) {
+      setFeedback("Supabase is not configured.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .order("position", { ascending: true });
+
+    if (error) {
+      setFeedback(`Could not load projects: ${error.message}`);
+    } else {
+      setItems(data || []);
+      setFeedback("");
+    }
+
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void loadProjects();
+  }, []);
+
+  // Reset creation form
+  function resetForm() {
+    setTitle("");
+    setCategory("AI Films");
+    setDescription("");
+    setBrandName("");
+    setYear(String(new Date().getFullYear()));
+    setCredits("");
+    setFeatured(false);
+    setPublishStatus("draft");
+
+    setThumbnail(null);
+    setCover(null);
+    setVideo(null);
+
+    // Clear the actual browser file inputs
+    setFileInputKey((current) => current + 1);
+  }
+
+  // Upload file to Supabase Storage
+  async function uploadFile(file: File, folder: string) {
+    if (!supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+
+    const extension =
+      file.name.split(".").pop()?.toLowerCase() || "file";
+
+    const path =
+      `projects/${folder}/${crypto.randomUUID()}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from("media")
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "application/octet-stream",
+      });
+
+    if (error) {
+      throw new Error(
+        `Upload failed for ${file.name}: ${error.message}`
+      );
+    }
+
+    const { data } = supabase.storage
+      .from("media")
+      .getPublicUrl(path);
+
+    return data.publicUrl;
+  }
+
+  // Create project
+  async function addProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!supabase || saving) return;
+
+    if (!title.trim() || !category || !video) {
+      setFeedback(
+        "Please enter a project title, select a category and upload a video."
+      );
+      return;
+    }
+
+    if (thumbnail && !thumbnail.type.startsWith("image/")) {
+      setFeedback("Thumbnail must be an image.");
+      return;
+    }
+
+    if (cover && !cover.type.startsWith("image/")) {
+      setFeedback("Cover must be an image.");
+      return;
+    }
+
+    if (!video.type.startsWith("video/")) {
+      setFeedback("Please select a valid video file.");
+      return;
+    }
+
+    if (year && !Number.isInteger(Number(year))) {
+      setFeedback("Please enter a valid production year.");
+      return;
+    }
+
+    const shouldPublish = publishStatus === "published";
+
+    setSaving(true);
+    setFeedback("");
+
+    try {
+      const slug =
+        `${title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+
+      // Upload selected media
+      const [thumbnailUrl, coverUrl, videoUrl] =
+        await Promise.all([
+          thumbnail
+            ? uploadFile(thumbnail, slug)
+            : Promise.resolve(null),
+
+          cover
+            ? uploadFile(cover, slug)
+            : Promise.resolve(null),
+
+          uploadFile(video, slug),
+        ]);
+
+      // Insert project into database
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          title: title.trim(),
+          slug,
+          category,
+          description: description.trim(),
+          brand_name: brandName.trim() || null,
+          year: year ? Number(year) : null,
+          credits: credits.trim() || null,
+          thumbnail_url: thumbnailUrl,
+          cover_url: coverUrl,
+          video_url: videoUrl,
+          featured,
+          published: shouldPublish,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setItems((current) => [...current, data]);
+
+      resetForm();
+      setCreating(false);
+
+      setFeedback(
+        shouldPublish
+          ? "Project created and published successfully!"
+          : "Project created successfully and saved as a draft."
+      );
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Unexpected error while creating project."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Publish or unpublish existing project
+  async function updatePublished(
+    id: string,
+    published: boolean
+  ) {
+    if (!supabase || updatingId) return;
+
+    setUpdatingId(id);
+    setFeedback("");
+
+    const { error } = await supabase
+      .from("projects")
+      .update({ published })
+      .eq("id", id);
+
+    if (error) {
+      setFeedback(
+        `Could not update publication status: ${error.message}`
+      );
+      setUpdatingId(null);
+      return;
+    }
+
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id
+          ? { ...item, published }
+          : item
+      )
+    );
+
+    setFeedback(
+      published
+        ? "Project published successfully!"
+        : "Project moved to drafts successfully."
+    );
+
+    setUpdatingId(null);
+  }
+
+  // Delete project
+  async function remove(id: string) {
+    if (!supabase) return;
+
+    setDeletingId(id);
+    setFeedback("");
+
+    const { error } = await supabase
+      .from("projects")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      setFeedback(`Could not delete project: ${error.message}`);
+      setDeletingId(null);
+      return;
+    }
+
+    setItems((current) =>
+      current.filter((item) => item.id !== id)
+    );
+
+    setDeletingId(null);
+    setFeedback("Project deleted successfully.");
+  }
+
+  // Project creation workspace
+  if (creating) {
+    return (
+      <div className="project-editor">
+
+        <div className="project-editor-header">
+          <div>
+            <small>PORTFOLIO / NEW PROJECT</small>
+            <h2>Create New Project</h2>
+            <p>
+              Add your project details and upload the production media.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="project-back-button"
+            onClick={() => {
+              if (!saving) {
+                setCreating(false);
+                setFeedback("");
+              }
+            }}
+            disabled={saving}
+          >
+            ← Back to Projects
+          </button>
+        </div>
+
+        <form onSubmit={addProject}>
+
+          <div className="project-form-section">
+            <h3>01. Project Information</h3>
+
+            <label>
+              Project Title *
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter project title"
+                required
+              />
+            </label>
+
+            <label>
+              Category *
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                required
+              >
+                <option>AI Films</option>
+                <option>Micro Dramas</option>
+                <option>Commercial Ads</option>
+                <option>AI VFX</option>
+                <option>Animation</option>
+              </select>
+            </label>
+
+            <label>
+              Project Description
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe your project..."
+                rows={5}
+              />
+            </label>
+
+            <div className="project-form-row">
+              <label>
+                Brand / Client
+                <input
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                  placeholder="Brand or client name"
+                />
+              </label>
+
+              <label>
+                Production Year
+                <input
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  min="1900"
+                  max="2100"
+                />
+              </label>
+            </div>
+
+            <label>
+              Credits
+              <input
+                value={credits}
+                onChange={(e) => setCredits(e.target.value)}
+                placeholder="Director, Creative Team, etc."
+              />
+            </label>
+
+            <label className="project-featured-toggle">
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => setFeatured(e.target.checked)}
+              />
+              Feature this project on the website
+            </label>
+
+            <label>
+              Publication Status
+              <select
+                value={publishStatus}
+                onChange={(e) =>
+                  setPublishStatus(
+                    e.target.value as "draft" | "published"
+                  )
+                }
+              >
+                <option value="draft">Save as Draft</option>
+                <option value="published">Publish Immediately</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="project-form-section">
+            <h3>02. Project Images</h3>
+            <p>
+              Upload images to represent your project on the portfolio.
+            </p>
+
+            <div className="project-upload-grid">
+
+              <label className="project-upload-box">
+                <span className="upload-icon">▧</span>
+                <strong>Thumbnail Image</strong>
+                <small>JPG, PNG or WebP</small>
+
+                <input
+                  key={`thumbnail-${fileInputKey}`}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setThumbnail(e.target.files?.[0] || null)
+                  }
+                />
+
+                <span className="selected-file">
+                  {thumbnail?.name || "Choose thumbnail"}
+                </span>
+              </label>
+
+              <label className="project-upload-box">
+                <span className="upload-icon">▧</span>
+                <strong>Cover Image</strong>
+                <small>JPG, PNG or WebP</small>
+
+                <input
+                  key={`cover-${fileInputKey}`}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setCover(e.target.files?.[0] || null)
+                  }
+                />
+
+                <span className="selected-file">
+                  {cover?.name || "Choose cover image"}
+                </span>
+              </label>
+
+            </div>
+          </div>
+
+          <div className="project-form-section">
+            <h3>03. Project Video</h3>
+            <p>
+              Upload the final video that will appear in your portfolio.
+            </p>
+
+            <label className="project-video-upload">
+              <span className="upload-icon">▶</span>
+              <strong>Upload Project Video *</strong>
+              <small>MP4, MOV or WebM</small>
+
+              <input
+                key={`video-${fileInputKey}`}
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,video/*"
+                onChange={(e) =>
+                  setVideo(e.target.files?.[0] || null)
+                }
+                required
+              />
+
+              <span className="selected-file">
+                {video?.name || "Select video from your computer"}
+              </span>
+
+              {video && (
                 <small>
-                  {String(item.email || "No email")}
-                  {item.phone ? ` · ${String(item.phone)}` : ""}
-                  {" · "}
-                  {item.project_type
-                    ? String(item.project_type)
-                    : "General inquiry"}
-                  {item.created_at
-                    ? ` · ${new Date(String(item.created_at)).toLocaleString()}`
-                    : ""}
+                  {(video.size / (1024 * 1024)).toFixed(2)} MB
                 </small>
-                <h3>{String(item.name || "Unnamed visitor")}</h3>
-                <p>{String(item.message || "")}</p>
-                <small>{isRead ? "Read" : "Unread"}</small>
-              </div>
+              )}
+            </label>
+          </div>
+
+          {feedback && (
+            <p className="project-feedback" role="status">
+              {feedback}
+            </p>
+          )}
+
+          <div className="project-form-actions">
+
+            <button
+              type="button"
+              className="project-back-button"
+              onClick={() => {
+                if (!saving) {
+                  setCreating(false);
+                  setFeedback("");
+                }
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="add-button"
+              disabled={saving}
+            >
+              {saving
+                ? "Uploading & Creating..."
+                : publishStatus === "published"
+                  ? "Create & Publish Project"
+                  : "Create Project as Draft"}
+            </button>
+
+          </div>
+
+        </form>
+      </div>
+    );
+  }
+
+  // Existing projects listing
+  return (
+    <div className="manager">
+
+      <div className="project-list-header">
+        <div>
+          <h3>Your Portfolio Projects</h3>
+          <p>
+            Manage your studio's published and draft projects.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="add-button"
+          onClick={() => {
+            resetForm();
+            setFeedback("");
+            setCreating(true);
+          }}
+        >
+          + Create New Project
+        </button>
+      </div>
+
+      {feedback && (
+        <p role="status" className="project-feedback">
+          {feedback}
+        </p>
+      )}
+
+      {loading ? (
+        <p>Loading projects...</p>
+      ) : items.length > 0 ? (
+
+        items.map((item) => (
+          <article
+            key={String(item.id)}
+            className="project-list-item"
+          >
+
+            {item.thumbnail_url && (
+              <img
+                src={String(item.thumbnail_url)}
+                alt={String(item.title)}
+                className="project-list-thumbnail"
+              />
+            )}
+
+            <div className="project-list-details">
+              <small>
+                {String(item.category || "Uncategorized")}
+              </small>
+
+              <h3>{String(item.title)}</h3>
+
+              <span
+                className={
+                  item.published ? "status live" : "status"
+                }
+              >
+                {item.published ? "Published" : "Draft"}
+              </span>
+            </div>
+
+            <div className="project-list-actions">
 
               <button
                 type="button"
-                disabled={isRead || updatingId === String(item.id)}
-                onClick={() => void markAsRead(String(item.id))}
+                className="add-button"
+                disabled={
+                  updatingId === String(item.id) ||
+                  deletingId === String(item.id)
+                }
+                onClick={() =>
+                  updatePublished(
+                    String(item.id),
+                    !item.published
+                  )
+                }
               >
                 {updatingId === String(item.id)
                   ? "Updating..."
-                  : isRead
-                    ? "Read"
-                    : "Mark read"}
+                  : item.published
+                    ? "Unpublish"
+                    : "Publish"}
               </button>
-            </article>
-          );
-        })
+
+              {deletingId === String(item.id) ? (
+                <div className="project-delete-confirm">
+                  <span>Delete this project?</span>
+
+                  <button
+                    type="button"
+                    disabled={updatingId === String(item.id)}
+                    onClick={() => remove(String(item.id))}
+                  >
+                    Yes, delete
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeletingId(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={updatingId === String(item.id)}
+                  onClick={() =>
+                    setDeletingId(String(item.id))
+                  }
+                >
+                  Delete
+                </button>
+              )}
+
+            </div>
+          </article>
+        ))
+
       ) : (
-        <div className="empty-state">No inquiries received.</div>
+        <div className="empty-state">
+          No projects yet. Create your first portfolio entry.
+        </div>
       )}
+
     </div>
   );
+}
+
+
+
+function BrandManager() {
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  useEffect(() => { supabase?.from("brands").select("*").order("position").then(({ data }) => setItems(data || [])); }, []);
+  async function addBrand() {
+    const name = window.prompt("Brand or partner name");
+    if (name) {
+      await supabase?.from("brands").insert({ name });
+      const result = await supabase?.from("brands").select("*").order("position");
+      setItems(result?.data || []);
+    }
+  }
+  return <div className="manager"><button className="add-button" onClick={addBrand}>+ Add Brand</button>{items.length ? items.map((item) => <article key={String(item.id)}><div><small>Collaboration</small><h3>{String(item.name)}</h3></div><button onClick={async () => { await supabase?.from("brands").delete().eq("id", item.id); setItems((current) => current.filter((entry) => entry.id !== item.id)); }}>Delete</button></article>) : <div className="empty-state">No collaborations yet.</div>}</div>;
+}
+
+function TeamManager() {
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  useEffect(() => { supabase?.from("team_members").select("*").order("position").then(({ data }) => setItems(data || [])); }, []);
+  async function addMember() {
+    const name = window.prompt("Full name");
+    if (!name) return;
+    const role = window.prompt("Role / designation") || "Creative Team";
+    await supabase?.from("team_members").insert({ name, role });
+    const result = await supabase?.from("team_members").select("*").order("position");
+    setItems(result?.data || []);
+  }
+  return <div className="manager"><button className="add-button" onClick={addMember}>+ Add Team Member</button>{items.length ? items.map((item) => <article key={String(item.id)}><div><small>{String(item.role)}</small><h3>{String(item.name)}</h3></div><button onClick={async () => { await supabase?.from("team_members").delete().eq("id", item.id); setItems((current) => current.filter((entry) => entry.id !== item.id)); }}>Remove</button></article>) : <div className="empty-state">No team profiles yet.</div>}</div>;
+}
+
+function InquiryManager() {
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  useEffect(() => { supabase?.from("inquiries").select("*").order("created_at", { ascending: false }).then(({ data }) => setItems(data || [])); }, []);
+  return <div className="manager">{items.length ? items.map((item) => <article key={String(item.id)}><div><small>{String(item.email)}{item.phone ? ` · ${String(item.phone)}` : ""} · {item.project_type ? String(item.project_type) : "General inquiry"}</small><h3>{String(item.name)}</h3><p>{String(item.message)}</p></div><button onClick={async () => { await supabase?.from("inquiries").update({ is_read: true, status: "read" }).eq("id", item.id); setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, is_read: true } : entry)); }}>Mark read</button></article>) : <div className="empty-state">No inquiries received.</div>}</div>;
 }
 
 function SettingsManager() {
